@@ -11,6 +11,8 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.54.0"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.24.0"),
+        .package(url: "https://github.com/apple/swift-collections.git",  .upToNextMajor(from: "1.0.0")),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -27,6 +29,9 @@ let package = Package(
                 "SMTPProtocol",
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .product(name: "Collections", package: "swift-collections"),
             ]
         ),
         .executableTarget(
