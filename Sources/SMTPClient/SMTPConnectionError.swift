@@ -17,5 +17,5 @@ import SMTPProtocol
 public enum SMTPConnectionError: Error, Sendable {
     case connectionClosed
     case connectionClose(broker: Error? = nil, connection: Error? = nil)
-    case invalidResponse(SMTPResponse)
+    case invalidReply(SMTPReply)
 }

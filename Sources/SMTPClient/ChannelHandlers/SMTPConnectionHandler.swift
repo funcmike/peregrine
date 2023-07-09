@@ -18,13 +18,13 @@ import SMTPProtocol
 
 @available(macOS 13.0, *)
 internal class SMTPConnectionHandler: ChannelDuplexHandler {
-    typealias InboundIn = Command
+    typealias InboundIn = SMTPCommand
     typealias OutboundOut = SMTPOutbound
-    typealias OutboundIn = (EventLoopPromise<SMTPResponse>, SMTPOutbound)
+    typealias OutboundIn = (EventLoopPromise<SMTPReply>, SMTPOutbound)
     
     private let eventLoop: EventLoop
 
-    private var responseQueue = Deque<EventLoopPromise<SMTPResponse>>()
+    private var replyQueue = Deque<EventLoopPromise<SMTPReply>>()
     
     private var state: State = .ready
     
@@ -32,8 +32,8 @@ internal class SMTPConnectionHandler: ChannelDuplexHandler {
         case ready, error(Error)
     }
     
-    init(eventLoop: EventLoop, onReady: EventLoopPromise<SMTPResponse>) {
-        self.responseQueue.append(onReady)
+    init(eventLoop: EventLoop, onReady: EventLoopPromise<SMTPReply>) {
+        self.replyQueue.append(onReady)
         self.eventLoop = eventLoop
     }
     
@@ -45,9 +45,9 @@ internal class SMTPConnectionHandler: ChannelDuplexHandler {
     public func channelInactive(context: ChannelHandlerContext) {
         switch self.state {
         case .error(let error):
-            return self.failAllResponses(because: error)
+            return self.failAllReplies(because: error)
         default:
-            return self.failAllResponses(because: SMTPConnectionError.connectionClosed)
+            return self.failAllReplies(because: SMTPConnectionError.connectionClosed)
         }
     }
     
@@ -72,31 +72,31 @@ internal class SMTPConnectionHandler: ChannelDuplexHandler {
     func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
         let (promise, outbound) = self.unwrapOutboundIn(data)
         
-        self.responseQueue.append(promise)
+        self.replyQueue.append(promise)
         
         let writeResult = context.writeAndFlush(wrapOutboundOut(outbound))
         writeResult.whenFailure { promise.fail($0) }
     }
     
     
-    func failAllResponses(because error: Error) {
+    func failAllReplies(because error: Error) {
         self.state = .error(error)
 
-        let queue = self.responseQueue
-        self.responseQueue.removeAll()
+        let queue = self.replyQueue
+        self.replyQueue.removeAll()
 
         queue.forEach { $0.fail(error) }
 
     }
     
     func errorCaught(context: ChannelHandlerContext, error: Error) {
-        self.failAllResponses(because: error)
+        self.failAllReplies(because: error)
         return context.close(promise: nil)
     }
 
     deinit {
-        if !self.responseQueue.isEmpty {
-            assertionFailure("Queue is not empty! Queue size: \(self.responseQueue.count)")
+        if !self.replyQueue.isEmpty {
+            assertionFailure("Queue is not empty! Queue size: \(self.replyQueue.count)")
         }
     }
 }

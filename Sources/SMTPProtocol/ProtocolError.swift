@@ -22,12 +22,16 @@ public enum ProtocolError: Error, Sendable {
     case commandTooLong
     case commandUnknown(String)
     case addressUnparsable(String)
-    case mailArgDuplicated(Command.MailFromArgs.Args)
-    case rcptArgDuplicated(Command.RcptToArgs.Args)
+    case mailArgDuplicated(SMTPCommand.MailFromArgs.Args)
+    case rcptArgDuplicated(SMTPCommand.RcptToArgs.Args)
     case notifyArgDuplicated(String)
     case notifyNotFound
     case notifyUnsupported(String)
     case argumentUnsupported(String)
     case mimeUnsupported(String)
     case retUnsupported(String)
+    case replySignBad(Character)
+    case replyTooLong
+    case replyCodesDiffer(first: SMTPReply.Code, current: SMTPReply.Code)
+    case replyCodeUnparsable(String)
 }

@@ -11,12 +11,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-public let crlf = ArraySlice([Token.cr.rawValue, Token.lf.rawValue])
+public let CRLFBytes = ArraySlice([Token.cr.rawValue, Token.lf.rawValue])
 
 internal extension ArraySlice<UInt8>  {
     @inlinable func dropCRLF() -> ArraySlice<UInt8> {
-        if self.suffix(crlf.count) == crlf {
-            return self.dropLast(crlf.count)
+        if self.suffix(CRLFBytes.count) == CRLFBytes {
+            return self.dropLast(CRLFBytes.count)
         }
         return self
     }

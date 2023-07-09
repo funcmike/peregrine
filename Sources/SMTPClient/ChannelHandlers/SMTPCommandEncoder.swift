@@ -16,8 +16,8 @@ import SMTPProtocol
 
 @available(macOS 13.0, *)
 public enum SMTPOutbound {
-    case command(Command)
-    case bulk([Command])
+    case command(SMTPCommand)
+    case bulk([SMTPCommand])
     case bytes([UInt8])
 }
 

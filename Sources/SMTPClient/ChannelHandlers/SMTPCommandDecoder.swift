@@ -16,13 +16,13 @@ import SMTPProtocol
 
 @available(macOS 13.0, *)
 public final class SMTPCommandDecoder: ByteToMessageDecoder  {
-    public typealias InboundOut = Command
+    public typealias InboundOut = SMTPCommand
 
     public func decode(context: ChannelHandlerContext, buffer: inout ByteBuffer) throws -> DecodingState {
         let startReaderIndex = buffer.readerIndex
 
         do {
-            let command = try Command.decode(from: &buffer)
+            let command = try SMTPCommand.decode(from: &buffer)
             context.fireChannelRead(wrapInboundOut(command))
 
             return .continue

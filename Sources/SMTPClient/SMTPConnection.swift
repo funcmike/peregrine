@@ -68,27 +68,27 @@ public final class SMTPConnection {
     ///     - config: Configuration data.
     /// - Returns:  EventLoopFuture with AMQP Connection.
     public static func connect(use eventLoop: EventLoop, from config: SMTPConnectionConfiguration) -> EventLoopFuture<SMTPConnection> {
-        let promise = eventLoop.makePromise(of: SMTPResponse.self)
+        let promise = eventLoop.makePromise(of: SMTPReply.self)
         let handler = SMTPConnectionHandler(eventLoop: eventLoop, onReady: promise)
 
         return eventLoop.flatSubmit { () -> EventLoopFuture<SMTPConnection> in
             let result = self.boostrapChannel(use: eventLoop, from: config, with: handler).flatMap { channel in
                 promise.futureResult.flatMapThrowing { response in
-                    guard case .connected = response else {
-                        throw SMTPConnectionError.invalidResponse(response)
+                    guard .init(severity: .positiveCompletion, category: .connections, detail: .zero) == response.code else {
+                        throw SMTPConnectionError.invalidReply(response)
                     }
 
                     return SMTPConnection(channel: channel)
                 }
             }
 
-            result.whenFailure { err in handler.failAllResponses(because: err) }
+            result.whenFailure { err in handler.failAllReplies(because: err) }
             return result
         }
     }
     
-    public func write(outbound: SMTPOutbound) -> EventLoopFuture<SMTPResponse> {
-        let promise = eventLoop.makePromise(of: SMTPResponse.self)
+    public func write(outbound: SMTPOutbound) -> EventLoopFuture<SMTPReply> {
+        let promise = eventLoop.makePromise(of: SMTPReply.self)
         let writeResult = self.channel.write(outbound)
         writeResult.whenFailure { promise.fail($0) }
         return writeResult.flatMap { promise.futureResult }
@@ -97,8 +97,8 @@ public final class SMTPConnection {
     private func quit() -> EventLoopFuture<Void> {
         return self.write(outbound: .command(.quit))
             .flatMapThrowing { response in
-                    guard case .quitOk = response else {
-                        throw SMTPConnectionError.invalidResponse(response)
+                guard .init(code: .init(severity: .positiveCompletion, category: .connections, detail: .one), message: "OK") == response else {
+                        throw SMTPConnectionError.invalidReply(response)
                     }
 
                     return ()

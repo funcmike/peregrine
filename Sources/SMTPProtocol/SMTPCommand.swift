@@ -64,7 +64,7 @@ public struct Address: CustomStringConvertible, Sendable {
 
 
 @available(macOS 13.0, *)
-public enum Command: PayloadDecodable, PayloadEncodable, Sendable {
+public enum SMTPCommand: PayloadDecodable, PayloadEncodable, Sendable {
     /// Data  received or send from at the HELO command.
     case helo(Client)
     /// Data  received or send from at the EHLO command.
@@ -140,20 +140,20 @@ public enum Command: PayloadDecodable, PayloadEncodable, Sendable {
             buffer.writeString(self.verb.rawValue)
             buffer.writeString(" ")
             buffer.writeString(args.rawValue)
-            buffer.writeBytes(crlf)
+            buffer.writeBytes(CRLFBytes)
         case let .ehlo(args):
             buffer.writeString(self.verb.rawValue)
             buffer.writeString(" ")
             buffer.writeString(args.rawValue)
-            buffer.writeBytes(crlf)
+            buffer.writeBytes(CRLFBytes)
         case let .mailFrom(args):
             buffer.writeString(self.verb.rawValue)
             try args.encode(into: &buffer)
-            buffer.writeBytes(crlf)
+            buffer.writeBytes(CRLFBytes)
         case let .rcptTo(args):
             buffer.writeString(self.verb.rawValue)
             try args.encode(into: &buffer)
-            buffer.writeBytes(crlf)
+            buffer.writeBytes(CRLFBytes)
         case .data, .quit:
             buffer.writeString(self.verb.rawValue)
         }
