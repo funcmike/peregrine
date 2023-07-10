@@ -16,6 +16,6 @@ import SMTPProtocol
 @available(macOS 13.0, *)
 public enum SMTPConnectionError: Error, Sendable {
     case connectionClosed
-    case connectionClose(broker: Error? = nil, connection: Error? = nil)
+    case connectionClose(server: Error? = nil, channel: Error? = nil)
     case invalidReply(SMTPReply)
 }

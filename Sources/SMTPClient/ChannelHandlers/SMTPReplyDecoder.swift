@@ -15,18 +15,19 @@ import NIOCore
 import SMTPProtocol
 
 @available(macOS 13.0, *)
-public final class SMTPCommandDecoder: ByteToMessageDecoder  {
-    public typealias InboundOut = SMTPCommand
+public final class SMTPReplyDecoder: ByteToMessageDecoder  {
+    public typealias InboundOut = SMTPReply
 
     public func decode(context: ChannelHandlerContext, buffer: inout ByteBuffer) throws -> DecodingState {
         let startReaderIndex = buffer.readerIndex
 
         do {
-            let command = try SMTPCommand.decode(from: &buffer)
-            context.fireChannelRead(wrapInboundOut(command))
-
+            let reply = try SMTPReply.decode(from: &buffer)
+            context.fireChannelRead(wrapInboundOut(reply))
             return .continue
         } catch let error as ProtocolError {
+            fatalError("decode error \(error)") // FIXME: remove me after debug phase
+
             buffer.moveReaderIndex(to: startReaderIndex)
 
             guard case .incomplete = error else {

@@ -229,6 +229,10 @@ public enum SMTPCommand: PayloadDecodable, PayloadEncodable, Sendable {
         init (rawValue: UnparsedArgs) throws {
             self.client = try .init(rawValue: rawValue)
         }
+        
+        public init(client: SMTPCommand.Client) {
+            self.client = client
+        }
     }
     
     /// Data  received or send from at the EHLO command.
@@ -241,6 +245,10 @@ public enum SMTPCommand: PayloadDecodable, PayloadEncodable, Sendable {
         
         init (rawValue: UnparsedArgs) throws {
             self.client = try .init(rawValue: rawValue)
+        }
+        
+        public init(client: SMTPCommand.Client) {
+            self.client = client
         }
     }
 

@@ -26,6 +26,8 @@ public final class SMTPCommandEncoder: MessageToByteEncoder {
     public typealias OutboundIn = SMTPOutbound
 
     public func encode(data: SMTPOutbound, out: inout ByteBuffer) throws {
+        print("encode", data)
+
         switch data {
         case .command(let command):
             try command.encode(into: &out)

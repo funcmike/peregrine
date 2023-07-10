@@ -1,9 +1,15 @@
+//===----------------------------------------------------------------------===//
 //
-//  File.swift
-//  
+// This source file is part of the Peregrine project
 //
-//  Created by Krzysztof Majk on 07/07/2023.
+// Copyright (c) 2023 Krzysztof Majk
+// Licensed under Apache License v2.0
 //
+// See LICENSE.txt for license information
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
 
 import XCTest
 import NIOCore

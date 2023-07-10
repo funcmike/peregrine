@@ -18,7 +18,7 @@ import SMTPProtocol
 
 @available(macOS 13.0, *)
 internal class SMTPConnectionHandler: ChannelDuplexHandler {
-    typealias InboundIn = SMTPCommand
+    typealias InboundIn = SMTPReply
     typealias OutboundOut = SMTPOutbound
     typealias OutboundIn = (EventLoopPromise<SMTPReply>, SMTPOutbound)
     
@@ -39,7 +39,6 @@ internal class SMTPConnectionHandler: ChannelDuplexHandler {
     
     func channelActive(context: ChannelHandlerContext) {
         context.fireChannelActive()
-        //return start(use: context)
     }
     
     public func channelInactive(context: ChannelHandlerContext) {
@@ -60,22 +59,28 @@ internal class SMTPConnectionHandler: ChannelDuplexHandler {
     }
     
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let command = self.unwrapInboundIn(data)
+        let reply = self.unwrapInboundIn(data)
         
-        switch command {
-        default:
-            return
+        print("reply", reply)
+        
+        if let promise = replyQueue.popFirst() {
+            promise.succeed(reply)
         }
-
     }
     
     func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
-        let (promise, outbound) = self.unwrapOutboundIn(data)
-        
-        self.replyQueue.append(promise)
-        
-        let writeResult = context.writeAndFlush(wrapOutboundOut(outbound))
-        writeResult.whenFailure { promise.fail($0) }
+        let (replyPromise, outbound) = self.unwrapOutboundIn(data)
+
+        switch state {
+        case .ready:
+            self.replyQueue.append(replyPromise)
+
+            context.writeAndFlush(wrapOutboundOut(outbound), promise: promise)
+            promise?.futureResult.whenFailure { replyPromise.fail($0) }
+        case let .error(err):
+            promise?.fail(err)
+            replyPromise.fail(err)
+        }
     }
     
     

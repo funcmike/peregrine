@@ -37,11 +37,15 @@ let package = Package(
         .executableTarget(
             name: "Peregrine",
             dependencies: [
+                "SMTPClient",
                 .product(name: "NIOCore", package: "swift-nio"),
             ]
         ),
         .testTarget(
             name: "SMTPProtocolTests",
             dependencies: ["SMTPProtocol"]),
+        .testTarget(
+            name: "SMTPConnectionTests",
+            dependencies: ["SMTPClient"]),
     ]
 )

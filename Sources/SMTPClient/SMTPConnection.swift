@@ -19,8 +19,13 @@ import SMTPProtocol
 
 @available(macOS 13.0, *)
 public struct SMTPConnectionConfiguration: Sendable {
-    let connection: Connection
-    let server: Server
+    public init(connection: SMTPConnectionConfiguration.Connection, server: SMTPConnectionConfiguration.Server) {
+        self.connection = connection
+        self.server = server
+    }
+    
+    public let connection: Connection
+    public let server: Server
     
     public enum Connection: Sendable {
         case tls(TLSConfiguration?, sniServerName: String?)
@@ -28,6 +33,12 @@ public struct SMTPConnectionConfiguration: Sendable {
     }
     
     public struct Server: Sendable {
+        public init(host: String = "127.0.0.1", port: Int = 25, timeout: TimeAmount = TimeAmount(Duration.seconds(10))) {
+            self.host = host
+            self.port = port
+            self.timeout = timeout
+        }
+        
         public var host: String
         public var port: Int
         public var timeout: TimeAmount
@@ -72,15 +83,15 @@ public final class SMTPConnection {
         let handler = SMTPConnectionHandler(eventLoop: eventLoop, onReady: promise)
 
         return eventLoop.flatSubmit { () -> EventLoopFuture<SMTPConnection> in
-            let result = self.boostrapChannel(use: eventLoop, from: config, with: handler).flatMap { channel in
-                promise.futureResult.flatMapThrowing { reply in
-                    guard .init(severity: .positiveCompletion, category: .connections, detail: .zero) == reply.code else {
-                        throw SMTPConnectionError.invalidReply(reply)
+            let result = self.boostrapChannel(use: eventLoop, from: config, with: handler)
+                .flatMap { channel in
+                    promise.futureResult.flatMapThrowing { reply in
+                        guard .init(severity: .positiveCompletion, category: .connections, detail: .zero) == reply.code else {
+                            throw SMTPConnectionError.invalidReply(reply)
+                        }
+                        return SMTPConnection(channel: channel)
                     }
-
-                    return SMTPConnection(channel: channel)
                 }
-            }
 
             result.whenFailure { err in handler.failAllReplies(because: err) }
             return result
@@ -89,15 +100,15 @@ public final class SMTPConnection {
     
     public func write(outbound: SMTPOutbound) -> EventLoopFuture<SMTPReply> {
         let promise = eventLoop.makePromise(of: SMTPReply.self)
-        let writeResult = self.channel.write(outbound)
-        writeResult.whenFailure { promise.fail($0) }
-        return writeResult.flatMap { promise.futureResult }
+        let result = self.channel.writeAndFlush((promise, outbound))
+        result.whenFailure { promise.fail($0) }
+        return result.flatMap { promise.futureResult }
     }
     
     private func quit() -> EventLoopFuture<Void> {
         return self.write(outbound: .command(.quit))
             .flatMapThrowing { reply in
-                guard .init(code: .init(severity: .positiveCompletion, category: .connections, detail: .one), message: "OK") == reply else {
+                guard .init(severity: .positiveCompletion, category: .connections, detail: .one) == reply.code else {
                         throw SMTPConnectionError.invalidReply(reply)
                     }
 
@@ -121,7 +132,7 @@ public final class SMTPConnection {
         guard shouldClose else { return self.channel.closeFuture }
         
         return self.eventLoop.flatSubmit {
-            let result = self.quit()
+           return self.quit()
                 .map { () in
                     return nil as Error?
                 }
@@ -140,11 +151,13 @@ public final class SMTPConnection {
                         return (result, error)
                     }
                 }
-            return result.flatMapThrowing {
-                let (broker, conn) = $0
-                if (broker ?? conn) != nil { throw SMTPConnectionError.connectionClose(broker: broker, connection: conn) }
-                return ()
-            }
+                .flatMapThrowing {
+                    let (server, channel) = $0
+                    if (server ?? channel) != nil {
+                        throw SMTPConnectionError.connectionClose(server: server, channel: channel)
+                    }
+                    return ()
+                }
         }
     }
 
@@ -165,7 +178,7 @@ public final class SMTPConnection {
                 .channelInitializer { channel in
                     channel.pipeline.addHandlers([
                         MessageToByteHandler(SMTPCommandEncoder()),
-                        ByteToMessageHandler(SMTPCommandDecoder()),
+                        ByteToMessageHandler(SMTPReplyDecoder()),
                         handler
                     ])
                 }
