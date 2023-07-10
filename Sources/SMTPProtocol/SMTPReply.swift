@@ -29,9 +29,8 @@ public struct SMTPReply: PayloadDecodable, PayloadEncodable, Equatable, Sendable
     
     public static func decode(from buffer: inout ByteBuffer) throws -> SMTPReply {
         let at = buffer.readerIndex
-        let readable = buffer.readableBytes
 
-        guard let lines = buffer.getString(at: at, length: readable) else {
+        guard let lines = buffer.getString(at: at, length: buffer.readableBytes) else {
             throw ProtocolError.bytesNotFound
         }
         
@@ -42,8 +41,6 @@ public struct SMTPReply: PayloadDecodable, PayloadEncodable, Equatable, Sendable
                 
         // last is always empty or ignored (without \r\n)
         let subLines = allLines.dropLast(1)
-        
-        //print(subLines)
 
         var firstCode: Code? = nil
         var replyLength = 0
@@ -101,7 +98,8 @@ public struct SMTPReply: PayloadDecodable, PayloadEncodable, Equatable, Sendable
 
         for (i, line) in subLines.enumerated() {
             buffer.writeBytes([
-                self.code.severity.rawValue.asciiValue!, self.code.category.rawValue.asciiValue!,
+                self.code.severity.rawValue.asciiValue!,
+                self.code.category.rawValue.asciiValue!,
                 self.code.detail.rawValue.asciiValue!,
                 i < lastLineIdx ? Tag.more.rawValue.asciiValue! : Tag.stop.rawValue.asciiValue!])
             buffer.writeSubstring(line)

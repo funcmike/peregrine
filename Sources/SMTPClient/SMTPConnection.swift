@@ -73,9 +73,9 @@ public final class SMTPConnection {
 
         return eventLoop.flatSubmit { () -> EventLoopFuture<SMTPConnection> in
             let result = self.boostrapChannel(use: eventLoop, from: config, with: handler).flatMap { channel in
-                promise.futureResult.flatMapThrowing { response in
-                    guard .init(severity: .positiveCompletion, category: .connections, detail: .zero) == response.code else {
-                        throw SMTPConnectionError.invalidReply(response)
+                promise.futureResult.flatMapThrowing { reply in
+                    guard .init(severity: .positiveCompletion, category: .connections, detail: .zero) == reply.code else {
+                        throw SMTPConnectionError.invalidReply(reply)
                     }
 
                     return SMTPConnection(channel: channel)
@@ -96,9 +96,9 @@ public final class SMTPConnection {
     
     private func quit() -> EventLoopFuture<Void> {
         return self.write(outbound: .command(.quit))
-            .flatMapThrowing { response in
-                guard .init(code: .init(severity: .positiveCompletion, category: .connections, detail: .one), message: "OK") == response else {
-                        throw SMTPConnectionError.invalidReply(response)
+            .flatMapThrowing { reply in
+                guard .init(code: .init(severity: .positiveCompletion, category: .connections, detail: .one), message: "OK") == reply else {
+                        throw SMTPConnectionError.invalidReply(reply)
                     }
 
                     return ()

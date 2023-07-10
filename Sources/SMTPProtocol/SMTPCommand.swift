@@ -65,19 +65,27 @@ public struct Address: CustomStringConvertible, Sendable {
 
 @available(macOS 13.0, *)
 public enum SMTPCommand: PayloadDecodable, PayloadEncodable, Sendable {
-    /// Data  received or send from at the HELO command.
-    case helo(Client)
-    /// Data  received or send from at the EHLO command.
-    case ehlo(Client)
-    /// Data  received or send from  at the MAIL FROM command.
+    /// Identifies client to SMTP server (legacy way).
+    case helo(HeloArgs)
+    /// Identifies client to SMTP server and request SMTP extensions.
+    case ehlo(EhloArgs)
+    /// Iinitiates mail transaction and specify reverse-path address and other options.
     case mailFrom(MailFromArgs)
-    /// Data  received or send from at the RCPT TO  command.
+    /// Identifies recipient of the mail data. Can be send multiple times in a single mail transaction.
     case rcptTo(RcptToArgs)
-    /// Data  received or send from at the  DATA  command.
+    /// Signals that mail data will be send after this command.
     case data
-    /// Data  received or send from at the  QUIT  command.
+    /// Aborts current mail transaction (all of previous state MUST BE discared.
+    case rset
+    /// Signals start of Transport Layer Security communication
+    /// see <https://datatracker.ietf.org/doc/html/rfc3207>
+    case startTls
+    /// Has no effect on any of parameters or previously entered commands.
+    /// Used mostly for testing to avoid timeouts.
+    case noop
+    /// Closes mail transaction and communication channel.
     case quit
-    
+
     public var verb: Verb {
         switch self {
         case .helo: return .helo
@@ -85,7 +93,10 @@ public enum SMTPCommand: PayloadDecodable, PayloadEncodable, Sendable {
         case .mailFrom: return .mailFrom
         case .rcptTo: return .rcptTo
         case .data: return .data
-        case .quit:return .quit
+        case .rset: return .rset
+        case .startTls: return .startTls
+        case .noop: return .noop
+        case .quit: return .quit
         }
     }
     
@@ -121,11 +132,14 @@ public enum SMTPCommand: PayloadDecodable, PayloadEncodable, Sendable {
             
             if line.starts(with: value.utf8, by: {$0.asciiUppercase() == $1}) {
                 switch verb {
-                case .helo: return try .helo(Client(rawValue: line[value.count...]))
-                case .ehlo: return try .ehlo(Client(rawValue: line[value.count...]))
-                case .mailFrom: return try .mailFrom(MailFromArgs(rawValue: line[value.count...]))
-                case .rcptTo: return try .rcptTo(RcptToArgs(rawValue: line[value.count...]))
+                case .helo: return try .helo(.init(rawValue: line[value.count...]))
+                case .ehlo: return try .ehlo(.init(rawValue: line[value.count...]))
+                case .mailFrom: return try .mailFrom(.init(rawValue: line[value.count...]))
+                case .rcptTo: return try .rcptTo(.init(rawValue: line[value.count...]))
                 case .data: return .data
+                case .rset: return .rset
+                case .startTls: return .startTls
+                case .noop: return .noop
                 case .quit: return .quit
                 }
             }
@@ -154,7 +168,7 @@ public enum SMTPCommand: PayloadDecodable, PayloadEncodable, Sendable {
             buffer.writeString(self.verb.rawValue)
             try args.encode(into: &buffer)
             buffer.writeBytes(CRLFBytes)
-        case .data, .quit:
+        case .data, .rset, .startTls, .noop, .quit:
             buffer.writeString(self.verb.rawValue)
         }
     }
@@ -165,6 +179,9 @@ public enum SMTPCommand: PayloadDecodable, PayloadEncodable, Sendable {
         case mailFrom = "MAIL FROM:"
         case rcptTo = "RCPT TO:"
         case data = "DATA\r\n"
+        case rset = "RSET\r\n"
+        case startTls = "STARTTLS\r\n"
+        case noop = "NOOP\r\n"
         case quit = "QUIT\r\n"
     }
     
@@ -200,7 +217,34 @@ public enum SMTPCommand: PayloadDecodable, PayloadEncodable, Sendable {
             try self.init(rawValue: value)
         }
     }
+    
+    /// Data  received or send from at the HELO command.
+    public struct HeloArgs: Sendable {
+        let client: Client
+        
+        var rawValue: String {
+            return self.client.rawValue
+        }
 
+        init (rawValue: UnparsedArgs) throws {
+            self.client = try .init(rawValue: rawValue)
+        }
+    }
+    
+    /// Data  received or send from at the EHLO command.
+    public struct EhloArgs: Sendable {
+        let client: Client
+        
+        var rawValue: String {
+            return self.client.rawValue
+        }
+        
+        init (rawValue: UnparsedArgs) throws {
+            self.client = try .init(rawValue: rawValue)
+        }
+    }
+
+    /// Data  received or send from  at the MAIL FROM command.
     public struct MailFromArgs: PayloadEncodable, Sendable {
         let reversePath: Address
         var mime: MimeBodyType? = nil
@@ -338,6 +382,7 @@ public enum SMTPCommand: PayloadDecodable, PayloadEncodable, Sendable {
         }
     }
     
+    /// Data  received or send from at the RCPT TO  command.
     public struct RcptToArgs: PayloadEncodable, Sendable {
         let forwardPath: Address
         var originalForwardPath: OriginalRcpt? = nil
